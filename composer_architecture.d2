@@ -1,0 +1,227 @@
+# Arquitectura Cloud Composer - Pipeline Bancario
+# El Composer hace PULL programado hacia el SFTP externo (no requiere IP fija en GCP)
+
+direction: right
+
+# --- Clases/Estilos ---
+classes: {
+  gcp_service: {
+    shape: image
+    width: 64
+    height: 64
+    style: {
+      stroke: transparent
+      fill: transparent
+    }
+  }
+  external_system: {
+    shape: image
+    width: 56
+    height: 56
+    style: {
+      stroke: transparent
+      fill: transparent
+    }
+  }
+  task_node: {
+    shape: rectangle
+    style: {
+      border-radius: 8
+      fill: "#e3f2fd"
+      stroke: "#1976d2"
+    }
+  }
+}
+
+# --- Iconos GCP (raw githubusercontent) ---
+vars: {
+  composer_icon: "https://raw.githubusercontent.com/mingrammer/diagrams/master/resources/gcp/analytics/composer.png"
+  storage_icon: "https://raw.githubusercontent.com/mingrammer/diagrams/master/resources/gcp/storage/storage.png"
+  cloudrun_icon: "https://raw.githubusercontent.com/mingrammer/diagrams/master/resources/gcp/compute/run.png"
+  bigquery_icon: "https://raw.githubusercontent.com/mingrammer/diagrams/master/resources/gcp/analytics/bigquery.png"
+  vertex_icon: "https://raw.githubusercontent.com/mingrammer/diagrams/master/resources/gcp/ml/ai-platform.png"
+  sftp_icon: "https://raw.githubusercontent.com/mingrammer/diagrams/master/resources/generic/storage/storage.png"
+}
+
+# --- Sistema Externo (Banco) ---
+banco: "🏦 Entorno Bancario" {
+  style: {
+    fill: "#ffebee"
+    stroke: "#c62828"
+    stroke-dash: 3
+  }
+  
+  sftp_server: {
+    class: external_system
+    label: "Servidor SFTP\n(IP fija del banco)"
+    icon: "https://raw.githubusercontent.com/mingrammer/diagrams/master/resources/generic/network/firewall.png"
+  }
+  
+  excel_d0: {
+    shape: document
+    label: "Excel d0\n(fichero origen)"
+    style: {
+      fill: "#ffcdd2"
+    }
+  }
+  
+  excel_d0 -> sftp_server: "disponible"
+}
+
+# --- GCP Project ---
+gcp: "☁️ GCP - Proyecto Pipeline" {
+  style: {
+    fill: "#e8f5e9"
+    stroke: "#2e7d32"
+  }
+  
+  # Cloud Composer
+  composer: "Cloud Composer (Airflow)" {
+    style: {
+      fill: "#e3f2fd"
+      stroke: "#1565c0"
+      border-radius: 12
+    }
+    
+    composer_icon: {
+      class: gcp_service
+      label: ""
+      icon: "https://raw.githubusercontent.com/mingrammer/diagrams/master/resources/gcp/analytics/composer.png"
+    }
+    
+    dag: "DAG: ingesta_excel_pipeline" {
+      style: {
+        fill: "#fff3e0"
+        stroke: "#ef6c00"
+        border-radius: 8
+      }
+      
+      t1: {
+        class: task_node
+        label: "Task 1\nSFTPToGCSOperator\n(Pull programado)"
+      }
+      
+      t2: {
+        class: task_node
+        label: "Task 2\nGCSSensor\n(Verificar upload)"
+      }
+      
+      t3: {
+        class: task_node
+        label: "Task 3\nSimpleHttpOperator\n(Trigger Cloud Run)"
+      }
+      
+      t4: {
+        class: task_node
+        label: "Task 4\nBigQueryOperator\n(Log estado)"
+      }
+      
+      t1 -> t2 -> t3 -> t4
+    }
+    
+    scheduler: {
+      shape: oval
+      label: "⏰ Schedule\n@hourly"
+      style: {
+        fill: "#fff9c4"
+        stroke: "#f9a825"
+      }
+    }
+    
+    scheduler -> dag
+  }
+  
+  # Cloud Storage
+  storage: "Cloud Storage" {
+    style: {
+      fill: "#e8f5e9"
+      stroke: "#43a047"
+      border-radius: 12
+    }
+    
+    storage_icon: {
+      class: gcp_service
+      label: ""
+      icon: "https://raw.githubusercontent.com/mingrammer/diagrams/master/resources/gcp/storage/storage.png"
+    }
+    
+    bucket_raw: {
+      shape: cylinder
+      label: "gs://proyecto-raw/\nd0/ (entrada)"
+      style: {
+        fill: "#c8e6c9"
+      }
+    }
+    
+    bucket_processed: {
+      shape: cylinder
+      label: "gs://proyecto-processed/\nd1/ (salida)"
+      style: {
+        fill: "#a5d6a7"
+      }
+    }
+  }
+  
+  # Cloud Run
+  cloudrun: {
+    class: gcp_service
+    label: "Cloud Run\nFastAPI Service"
+    icon: "https://raw.githubusercontent.com/mingrammer/diagrams/master/resources/gcp/compute/run.png"
+    tooltip: "Procesamiento de filas del Excel"
+  }
+  
+  # BigQuery
+  bigquery: {
+    class: gcp_service
+    label: "BigQuery\ntabla_comandas"
+    icon: "https://raw.githubusercontent.com/mingrammer/diagrams/master/resources/gcp/analytics/bigquery.png"
+    tooltip: "Estado de cada fila/comanda"
+  }
+  
+  # Vertex AI
+  vertex: {
+    class: gcp_service
+    label: "Vertex AI\nGemini/PaLM"
+    icon: "https://raw.githubusercontent.com/mingrammer/diagrams/master/resources/gcp/ml/ai-platform.png"
+    tooltip: "Traducción, resumen, extracción"
+  }
+  
+  # Conexiones internas GCP
+  composer.dag.t1 -> storage.bucket_raw: "upload"
+  composer.dag.t3 -> cloudrun: "HTTP POST\n/procesar_excel"
+  composer.dag.t4 -> bigquery: "INSERT log"
+  
+  cloudrun -> storage.bucket_raw: "lee Excel"
+  cloudrun -> vertex: "procesa docs"
+  cloudrun -> storage.bucket_processed: "escribe resultado"
+  cloudrun -> bigquery: "UPDATE estado"
+}
+
+# --- Conexión Externa: Composer hace PULL al SFTP ---
+banco.sftp_server <- gcp.composer.dag.t1: {
+  label: "SFTP PULL\n(schedule cada X horas)"
+  style: {
+    stroke: "#d32f2f"
+    stroke-width: 2
+    stroke-dash: 5
+  }
+}
+
+# --- Nota explicativa ---
+nota: |md
+  ## Flujo de Datos
+  1. **Composer** hace **PULL programado** al SFTP del banco
+  2. El Excel se sube a Cloud Storage (bucket raw)
+  3. Se dispara Cloud Run para procesar filas
+  4. Cada fila → Vertex AI para NLP
+  5. Resultados en bucket processed + estado en BigQuery
+  
+  ⚠️ **No se requiere IP fija en GCP** - El banco expone el SFTP y Composer inicia la conexión saliente.
+| {
+  style: {
+    fill: "#fafafa"
+    stroke: "#9e9e9e"
+    font-size: 12
+  }
+  near: bottom-center
+}
