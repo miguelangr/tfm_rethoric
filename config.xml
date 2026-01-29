@@ -1,0 +1,31 @@
+<config>
+  <nombre>Proyecto de prueba</nombre>
+  <version>1.0</version>
+  <blobs>
+    <blob id="1">
+      <![CDATA[
+        U2FsdGVkX1+K6t3Y3Q0VZmFkZWQgYmxvYiBjb2RlIGhlcmU=
+      ]]>
+    </blob>
+    <blob id="2">
+      <![CDATA[
+        U2FsdGVkX19XaWQgYmxvYiBjb2RlIGhlcmU=
+      ]]>
+    </blob>
+    <blob id="3">
+      <![CDATA[
+        U2FsdGVkX19WYWxvciBibG9iIGNvZGUgaGVyZQ==
+      ]]>
+    </blob>
+    <blob id="4">
+      <![CDATA[
+        pegar aqui
+      ]]>
+    </blob>
+    <blob id="5">
+      <![CDATA[
+        U2FsdGVkX19Qcm9iYWJsZSBibG9iIGNvZGUgaGVyZQ==
+      ]]>
+    </blob>
+  </blobs>
+</config>
